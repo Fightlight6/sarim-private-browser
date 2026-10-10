@@ -3,59 +3,98 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Private Web Browser</title>
+  <title>PrivaSearch - Privacy First Search</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-    body { display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: #fff; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #121212; color: #e0e0e0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; }
     
-    /* Navigation Bar */
-    .navbar { display: flex; gap: 8px; padding: 10px; background: #2d2d2d; align-items: center; }
-    .btn { background: #3c3c3c; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
-    .btn:hover { background: #505050; }
-    .url-bar { flex-grow: 1; padding: 8px 12px; border-radius: 4px; border: 1px solid #444; background: #121212; color: #fff; font-size: 14px; }
+    /* Header & Search Box */
+    header { width: 100%; max-width: 700px; text-align: center; margin-top: 50px; transition: margin 0.3s ease; }
+    header.searched { margin-top: 10px; }
+    h1 { font-size: 2.5rem; color: #008080; margin-bottom: 20px; letter-spacing: 1px; }
     
-    /* Browser Frame */
-    iframe { flex-grow: 1; border: none; background: white; }
+    .search-box { display: flex; width: 100%; gap: 10px; background: #1e1e1e; padding: 8px; border-radius: 30px; border: 1px solid #333; }
+    .search-box:focus-within { border-color: #008080; box-shadow: 0 0 10px rgba(0, 128, 128, 0.3); }
+    
+    input[type="text"] { flex: 1; background: transparent; border: none; outline: none; padding: 10px 15px; color: #fff; font-size: 1.1rem; }
+    button { background: #008080; border: none; color: white; padding: 10px 25px; border-radius: 20px; font-size: 1rem; cursor: pointer; font-weight: bold; }
+    button:hover { background: #00a0a0; }
+
+    /* Results Area */
+    #results { width: 100%; max-width: 700px; margin-top: 30px; display: flex; flex-direction: column; gap: 20px; }
+    .result-card { background: #1e1e1e; padding: 18px; border-radius: 12px; border: 1px solid #2a2a2a; }
+    .result-card h3 { margin-bottom: 6px; }
+    .result-card h3 a { color: #58a6ff; text-decoration: none; font-size: 1.2rem; }
+    .result-card h3 a:hover { text-decoration: underline; }
+    .result-card .snippet { font-size: 0.95rem; color: #b0b0b0; line-height: 1.5; }
+    
+    .badge { display: inline-block; background: #263238; color: #80cbc4; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; margin-bottom: 8px; text-transform: uppercase; }
   </style>
 </head>
 <body>
 
-  <!-- Controls -->
-  <div class="navbar">
-    <button class="btn" onclick="goHome()">🏠 Home</button>
-    <input type="text" id="urlInput" class="url-bar" placeholder="Search with DuckDuckGo or enter URL..." onkeydown="handleKeyPress(event)">
-    <button class="btn" onclick="loadURL()">Go</button>
-  </div>
+  <header id="mainHeader">
+    <h1>🔒 PrivaSearch</h1>
+    <div class="search-box">
+      <input type="text" id="queryInput" placeholder="Search privately without trackers..." onkeydown="if(event.key==='Enter') search()">
+      <button onclick="search()">Search</button>
+    </div>
+  </header>
 
-  <!-- Embedded Web View -->
-  <iframe id="browserFrame" src="https://duckduckgo.com/html"></iframe>
+  <main id="results"></main>
 
   <script>
-    const frame = document.getElementById('browserFrame');
-    const input = document.getElementById('urlInput');
-
-    function loadURL() {
-      let query = input.value.trim();
+    async function search() {
+      const query = document.getElementById('queryInput').value.trim();
+      const resultsContainer = document.getElementById('results');
+      const header = document.getElementById('mainHeader');
+      
       if (!query) return;
 
-      // Check if user entered a direct website link or search query
-      if (query.startsWith('http://') || query.startsWith('https://')) {
-        frame.src = query;
-      } else if (query.includes('.') && !query.includes(' ')) {
-        frame.src = 'https://' + query;
-      } else {
-        // Fallback to DuckDuckGo search
-        frame.src = 'https://duckduckgo.com/html/?q=' + encodeURIComponent(query);
+      header.classList.add('searched');
+      resultsContainer.innerHTML = '<p style="text-align:center; color:#888;">Searching privately...</p>';
+
+      let htmlOutput = '';
+
+      try {
+        // 1. Fetch Instant Answers from DuckDuckGo API (completely anonymous)
+        const ddgRes = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&origin=*`);
+        const ddgData = await ddgRes.json();
+
+        if (ddgData.AbstractText) {
+          htmlOutput += `
+            <div class="result-card">
+              <span class="badge">Instant Answer</span>
+              <h3><a href="${ddgData.AbstractURL}" target="_blank" rel="noopener noreferrer">${ddgData.Heading}</a></h3>
+              <p class="snippet">${ddgData.AbstractText}</p>
+            </div>`;
+        }
+
+        // 2. Fetch Knowledge Results from Wikipedia API
+        const wikiRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=5&prop=extracts&exintro=1&explaintext=1&exsentences=3&format=json&origin=*`);
+        const wikiData = await wikiRes.json();
+
+        if (wikiData.query && wikiData.query.pages) {
+          const pages = Object.values(wikiData.query.pages);
+          pages.forEach(page => {
+            htmlOutput += `
+              <div class="result-card">
+                <span class="badge">Knowledge Result</span>
+                <h3><a href="https://en.wikipedia.org/?curid=${page.pageid}" target="_blank" rel="noopener noreferrer">${page.title}</a></h3>
+                <p class="snippet">${page.extract || 'No preview summary available.'}</p>
+              </div>`;
+          });
+        }
+
+        if (!htmlOutput) {
+          htmlOutput = '<p style="text-align:center; color:#888;">No results found for your search.</p>';
+        }
+
+      } catch (err) {
+        htmlOutput = '<p style="text-align:center; color:#ff6b6b;">Failed to load results. Check your internet connection.</p>';
       }
-    }
 
-    function goHome() {
-      frame.src = 'https://duckduckgo.com/html';
-      input.value = '';
-    }
-
-    function handleKeyPress(e) {
-      if (e.key === 'Enter') loadURL();
+      resultsContainer.innerHTML = htmlOutput;
     }
   </script>
 </body>
