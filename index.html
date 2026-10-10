@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Private Web Browser</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: #fff; }
+    
+    /* Navigation Bar */
+    .navbar { display: flex; gap: 8px; padding: 10px; background: #2d2d2d; align-items: center; }
+    .btn { background: #3c3c3c; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; }
+    .btn:hover { background: #505050; }
+    .url-bar { flex-grow: 1; padding: 8px 12px; border-radius: 4px; border: 1px solid #444; background: #121212; color: #fff; font-size: 14px; }
+    
+    /* Browser Frame */
+    iframe { flex-grow: 1; border: none; background: white; }
+  </style>
+</head>
+<body>
+
+  <!-- Controls -->
+  <div class="navbar">
+    <button class="btn" onclick="goHome()">🏠 Home</button>
+    <input type="text" id="urlInput" class="url-bar" placeholder="Search with DuckDuckGo or enter URL..." onkeydown="handleKeyPress(event)">
+    <button class="btn" onclick="loadURL()">Go</button>
+  </div>
+
+  <!-- Embedded Web View -->
+  <iframe id="browserFrame" src="https://duckduckgo.com/html"></iframe>
+
+  <script>
+    const frame = document.getElementById('browserFrame');
+    const input = document.getElementById('urlInput');
+
+    function loadURL() {
+      let query = input.value.trim();
+      if (!query) return;
+
+      // Check if user entered a direct website link or search query
+      if (query.startsWith('http://') || query.startsWith('https://')) {
+        frame.src = query;
+      } else if (query.includes('.') && !query.includes(' ')) {
+        frame.src = 'https://' + query;
+      } else {
+        // Fallback to DuckDuckGo search
+        frame.src = 'https://duckduckgo.com/html/?q=' + encodeURIComponent(query);
+      }
+    }
+
+    function goHome() {
+      frame.src = 'https://duckduckgo.com/html';
+      input.value = '';
+    }
+
+    function handleKeyPress(e) {
+      if (e.key === 'Enter') loadURL();
+    }
+  </script>
+</body>
+</html>
