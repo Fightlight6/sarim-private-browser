@@ -3,98 +3,165 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PrivaSearch - Privacy First Search</title>
+  <title>PrivaBrowser & Search</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background-color: #121212; color: #e0e0e0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    
-    /* Header & Search Box */
-    header { width: 100%; max-width: 700px; text-align: center; margin-top: 50px; transition: margin 0.3s ease; }
-    header.searched { margin-top: 10px; }
-    h1 { font-size: 2.5rem; color: #008080; margin-bottom: 20px; letter-spacing: 1px; }
-    
-    .search-box { display: flex; width: 100%; gap: 10px; background: #1e1e1e; padding: 8px; border-radius: 30px; border: 1px solid #333; }
-    .search-box:focus-within { border-color: #008080; box-shadow: 0 0 10px rgba(0, 128, 128, 0.3); }
-    
-    input[type="text"] { flex: 1; background: transparent; border: none; outline: none; padding: 10px 15px; color: #fff; font-size: 1.1rem; }
-    button { background: #008080; border: none; color: white; padding: 10px 25px; border-radius: 20px; font-size: 1rem; cursor: pointer; font-weight: bold; }
-    button:hover { background: #00a0a0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+    body { display: flex; flex-direction: column; height: 100vh; background-color: #181818; color: #fff; overflow: hidden; }
 
-    /* Results Area */
-    #results { width: 100%; max-width: 700px; margin-top: 30px; display: flex; flex-direction: column; gap: 20px; }
-    .result-card { background: #1e1e1e; padding: 18px; border-radius: 12px; border: 1px solid #2a2a2a; }
-    .result-card h3 { margin-bottom: 6px; }
-    .result-card h3 a { color: #58a6ff; text-decoration: none; font-size: 1.2rem; }
-    .result-card h3 a:hover { text-decoration: underline; }
-    .result-card .snippet { font-size: 0.95rem; color: #b0b0b0; line-height: 1.5; }
+    /* Top Navigation Bar */
+    .navbar { display: flex; align-items: center; gap: 8px; padding: 10px; background-color: #242424; border-bottom: 1px solid #333; }
+    .nav-btn { background: #333; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .nav-btn:hover { background: #444; }
     
-    .badge { display: inline-block; background: #263238; color: #80cbc4; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; margin-bottom: 8px; text-transform: uppercase; }
+    .url-input { flex-grow: 1; padding: 10px 16px; border-radius: 20px; border: 1px solid #444; background: #121212; color: #fff; font-size: 14px; outline: none; }
+    .url-input:focus { border-color: #008080; }
+
+    /* Main Display Area */
+    .viewport { flex-grow: 1; position: relative; width: 100%; height: 100%; }
+
+    /* 1. Embedded Web View (For direct websites) */
+    iframe { width: 100%; height: 100%; border: none; background: #fff; display: none; }
+
+    /* 2. Custom Search Engine View (For search queries) */
+    .search-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow-y: auto; background: #121212; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+    
+    .results-container { width: 100%; max-width: 750px; margin-top: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .result-card { background: #1e1e1e; padding: 16px; border-radius: 8px; border: 1px solid #2d2d2d; }
+    .result-card h3 a { color: #58a6ff; text-decoration: none; font-size: 1.1rem; }
+    .result-card h3 a:hover { text-decoration: underline; }
+    .result-card .url-text { color: #8b949e; font-size: 0.8rem; margin-bottom: 6px; display: block; }
+    .result-card .snippet { color: #c9d1d9; font-size: 0.9rem; line-height: 1.4; }
+    .badge { background: #008080; color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; margin-bottom: 6px; display: inline-block; }
   </style>
 </head>
 <body>
 
-  <header id="mainHeader">
-    <h1>🔒 PrivaSearch</h1>
-    <div class="search-box">
-      <input type="text" id="queryInput" placeholder="Search privately without trackers..." onkeydown="if(event.key==='Enter') search()">
-      <button onclick="search()">Search</button>
-    </div>
-  </header>
+  <!-- Browser Controls -->
+  <div class="navbar">
+    <button class="nav-btn" onclick="showHome()">🏠 Home</button>
+    <input type="text" id="addressBar" class="url-input" placeholder="Type a URL (e.g. wikipedia.org) or search term..." onkeydown="if(event.key==='Enter') navigate()">
+    <button class="nav-btn" onclick="navigate()">Go</button>
+  </div>
 
-  <main id="results"></main>
+  <!-- Viewport Area -->
+  <div class="viewport">
+    
+    <!-- Website Frame -->
+    <iframe id="webFrame"></iframe>
+
+    <!-- Search Engine View -->
+    <div id="searchView" class="search-view">
+      <h2 style="margin-top: 40px; color: #008080;">🔒 PrivaBrowser Engine</h2>
+      <p style="color: #888; margin-bottom: 20px;">Type a website domain above to open it, or type anything to search.</p>
+      <div id="searchResults" class="results-container"></div>
+    </div>
+
+  </div>
 
   <script>
-    async function search() {
-      const query = document.getElementById('queryInput').value.trim();
-      const resultsContainer = document.getElementById('results');
-      const header = document.getElementById('mainHeader');
-      
-      if (!query) return;
+    const frame = document.getElementById('webFrame');
+    const searchView = document.getElementById('searchView');
+    const searchResults = document.getElementById('searchResults');
+    const addressBar = document.getElementById('addressBar');
 
-      header.classList.add('searched');
-      resultsContainer.innerHTML = '<p style="text-align:center; color:#888;">Searching privately...</p>';
+    function navigate() {
+      const input = addressBar.value.trim();
+      if (!input) return;
 
-      let htmlOutput = '';
+      // Check if user input is a website link (contains domain extension like .com, .org, .io, .net)
+      const isWebsite = input.startsWith('http://') || 
+                        input.startsWith('https://') || 
+                        (input.includes('.') && !input.includes(' '));
+
+      if (isWebsite) {
+        // Open site inside the browser frame
+        let targetUrl = input;
+        if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+          targetUrl = 'https://' + targetUrl;
+        }
+        
+        searchView.style.display = 'none';
+        frame.style.display = 'block';
+        frame.src = targetUrl;
+      } else {
+        // Run private search
+        frame.style.display = 'none';
+        searchView.style.display = 'flex';
+        executePrivateSearch(input);
+      }
+    }
+
+    async function executePrivateSearch(query) {
+      searchResults.innerHTML = '<p style="text-align:center; color:#888;">Searching web anonymously...</p>';
+      let html = '';
 
       try {
-        // 1. Fetch Instant Answers from DuckDuckGo API (completely anonymous)
-        const ddgRes = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&origin=*`);
-        const ddgData = await ddgRes.json();
+        // Fetch Instant Answer & Websites from DuckDuckGo API
+        const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&origin=*`);
+        const data = await response.json();
 
-        if (ddgData.AbstractText) {
-          htmlOutput += `
+        if (data.AbstractURL) {
+          html += `
             <div class="result-card">
-              <span class="badge">Instant Answer</span>
-              <h3><a href="${ddgData.AbstractURL}" target="_blank" rel="noopener noreferrer">${ddgData.Heading}</a></h3>
-              <p class="snippet">${ddgData.AbstractText}</p>
+              <span class="badge">Top Result</span>
+              <span class="url-text">${data.AbstractURL}</span>
+              <h3><a href="#" onclick="openSite('${data.AbstractURL}')">${data.Heading}</a></h3>
+              <p class="snippet">${data.AbstractText}</p>
             </div>`;
         }
 
-        // 2. Fetch Knowledge Results from Wikipedia API
-        const wikiRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=5&prop=extracts&exintro=1&explaintext=1&exsentences=3&format=json&origin=*`);
+        // Fetch related topics/links
+        if (data.RelatedTopics && data.RelatedTopics.length > 0) {
+          data.RelatedTopics.slice(0, 8).forEach(item => {
+            if (item.FirstURL && item.Text) {
+              html += `
+                <div class="result-card">
+                  <span class="url-text">${item.FirstURL}</span>
+                  <h3><a href="#" onclick="openSite('${item.FirstURL}')">${item.Text.split(' - ')[0]}</a></h3>
+                  <p class="snippet">${item.Text}</p>
+                </div>`;
+            }
+          });
+        }
+
+        // Fetch Wikipedia Articles
+        const wikiRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=5&prop=extracts&exintro=1&explaintext=1&exsentences=2&format=json&origin=*`);
         const wikiData = await wikiRes.json();
 
         if (wikiData.query && wikiData.query.pages) {
-          const pages = Object.values(wikiData.query.pages);
-          pages.forEach(page => {
-            htmlOutput += `
+          Object.values(wikiData.query.pages).forEach(page => {
+            const pageUrl = `https://en.wikipedia.org/?curid=${page.pageid}`;
+            html += `
               <div class="result-card">
-                <span class="badge">Knowledge Result</span>
-                <h3><a href="https://en.wikipedia.org/?curid=${page.pageid}" target="_blank" rel="noopener noreferrer">${page.title}</a></h3>
-                <p class="snippet">${page.extract || 'No preview summary available.'}</p>
+                <span class="badge">Wikipedia</span>
+                <span class="url-text">${pageUrl}</span>
+                <h3><a href="#" onclick="openSite('${pageUrl}')">${page.title}</a></h3>
+                <p class="snippet">${page.extract || ''}</p>
               </div>`;
           });
         }
 
-        if (!htmlOutput) {
-          htmlOutput = '<p style="text-align:center; color:#888;">No results found for your search.</p>';
-        }
+        if (!html) html = '<p style="text-align:center; color:#888;">No results found. Try searching a specific domain name.</p>';
 
       } catch (err) {
-        htmlOutput = '<p style="text-align:center; color:#ff6b6b;">Failed to load results. Check your internet connection.</p>';
+        html = '<p style="text-align:center; color:#ff6b6b;">Failed to fetch results. Check your connection.</p>';
       }
 
-      resultsContainer.innerHTML = htmlOutput;
+      searchResults.innerHTML = html;
+    }
+
+    function openSite(url) {
+      addressBar.value = url;
+      searchView.style.display = 'none';
+      frame.style.display = 'block';
+      frame.src = url;
+    }
+
+    function showHome() {
+      frame.style.display = 'none';
+      searchView.style.display = 'flex';
+      searchResults.innerHTML = '';
+      addressBar.value = '';
     }
   </script>
 </body>
