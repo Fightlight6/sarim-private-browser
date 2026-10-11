@@ -64,7 +64,7 @@
       </div>
 
       <p class="info-text">
-        🔒 Both Google Searches and websites render directly inside this window.
+        🔒 Native Google Search enabled. External sites route through proxy engine.
       </p>
     </div>
 
@@ -79,7 +79,7 @@
     const topAddressBar = document.getElementById('topAddressBar');
     const mainSearchInput = document.getElementById('mainSearchInput');
 
-    // Intercept clicks on links inside loaded pages to keep browsing inside the app
+    // Intercept internal link clicks to keep browsing inside the app
     window.addEventListener('message', (e) => {
       if (e.data && e.data.type === 'NAVIGATE_INNER' && e.data.url) {
         loadTarget(e.data.url);
@@ -95,20 +95,24 @@
                     query.startsWith('https://') || 
                     (query.includes('.') && !query.includes(' '));
 
+      homeSection.style.display = 'none';
+      frame.style.display = 'block';
+
       if (isUrl) {
         let target = query;
         if (!target.startsWith('http://') && !target.startsWith('https://')) {
           target = 'https://' + target;
         }
-        fetchAndRender(target);
+        fetchWebSite(target);
       } else {
-        // Fetch Google Search via HTML renderer to strip X-Frame-Options
-        const googleUrl = 'https://www.google.com/search?q=' + encodeURIComponent(query);
-        fetchAndRender(googleUrl);
+        // DIRECT GOOGLE SEARCH LOAD USING igu=1 PARAMETER
+        // NEVER send Google Search queries through a proxy server
+        frame.removeAttribute('srcdoc');
+        frame.src = 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(query);
       }
     }
 
-    async function fetchWithTimeout(url, timeoutMs = 4000) {
+    async function fetchWithTimeout(url, timeoutMs = 3000) {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -121,28 +125,26 @@
       }
     }
 
-    async function fetchAndRender(targetUrl) {
-      homeSection.style.display = 'none';
-      frame.style.display = 'block';
+    async function fetchWebSite(targetUrl) {
       frame.removeAttribute('src');
 
-      // Show dark mode loading screen
+      // Loading screen inside frame
       frame.srcdoc = `
         <body style="background:#202124; color:#8ab4f8; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0;">
-          <h2 style="margin-bottom:10px;">Loading...</h2>
+          <h2 style="margin-bottom:10px;">Connecting to website...</h2>
           <p style="color:#bdc1c6; font-size:14px;">${targetUrl}</p>
         </body>`;
 
-      const proxies = [
+      const proxyList = [
         `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
         `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
       ];
 
       let loadedHtml = null;
 
-      for (const proxy of proxies) {
+      for (const proxy of proxyList) {
         try {
-          const res = await fetchWithTimeout(proxy, 4000);
+          const res = await fetchWithTimeout(proxy, 3000);
           if (res.ok) {
             const text = await res.text();
             if (text && text.trim().length > 0) {
@@ -156,7 +158,6 @@
       }
 
       if (loadedHtml) {
-        // Inject base URL tag and link click interceptor
         const scriptInjector = `
           <base href="${targetUrl}">
           <script>
@@ -178,7 +179,7 @@
 
         frame.srcdoc = loadedHtml;
       } else {
-        // Fallback to Google Translate proxy frame
+        // Fallback proxy frame for external sites
         frame.removeAttribute('srcdoc');
         frame.src = 'https://translate.google.com/translate?sl=auto&tl=en&u=' + encodeURIComponent(targetUrl);
       }
