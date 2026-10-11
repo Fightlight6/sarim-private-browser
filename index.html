@@ -3,25 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Google Cloud Portal</title>
+  <title>Google Cloud Browser</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     body { background: #202124; color: #e8eaed; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-    /* Top Navigation Controls */
+    /* Navigation Bar */
     .nav-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #2f3136; border-bottom: 1px solid #3c4043; }
     .btn { background: #8ab4f8; color: #202124; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
     .btn:hover { background: #aecbfa; }
-    .btn-launch { background: #34a853; color: #fff; }
-    .btn-launch:hover { background: #2d9247; }
 
     .url-input { flex: 1; padding: 10px 16px; border-radius: 24px; border: 1px solid #5f6368; background: #171717; color: #fff; font-size: 14px; outline: none; }
     .url-input:focus { border-color: #8ab4f8; box-shadow: 0 0 5px rgba(138, 180, 248, 0.4); }
 
-    /* Main Content Container */
+    /* Main Container */
     .main-container { flex: 1; position: relative; width: 100%; height: 100%; }
 
-    /* Google Home Screen */
+    /* Home Interface */
     #homeSection { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 20px; text-align: center; }
     .google-logo { font-size: 3.5rem; font-weight: bold; margin-bottom: 24px; letter-spacing: -1px; }
     .g-blue { color: #4285f4; }
@@ -36,21 +34,19 @@
     .search-btn { background: #303134; color: #e8eaed; border: 1px solid #5f6368; padding: 12px 24px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; }
     .search-btn:hover { background: #3c4043; border-color: #8ab4f8; }
 
-    .info-card { background: #2d2e31; border: 1px solid #3c4043; padding: 16px; border-radius: 12px; margin-top: 15px; max-width: 520px; font-size: 0.88rem; color: #bdc1c6; line-height: 1.5; text-align: left; }
-    .info-card ul { margin-left: 20px; margin-top: 8px; }
+    .status-msg { color: #8ab4f8; font-size: 0.9rem; margin-top: 10px; min-height: 20px; }
 
-    /* Embedded Frame for Google Search */
+    /* Embedded Web Display Frame */
     #browserFrame { width: 100%; height: 100%; border: none; background: #fff; display: none; }
   </style>
 </head>
 <body>
 
-  <!-- Navigation Bar -->
+  <!-- Top Navigation Bar -->
   <div class="nav-bar">
     <button class="btn" onclick="showHome()">🏠 Home</button>
-    <input type="text" id="topAddressBar" class="url-input" placeholder="Search Google or type a URL (e.g., wikipedia.org)..." onkeydown="if(event.key==='Enter') processInput(topAddressBar.value)">
-    <button class="btn" onclick="processInput(topAddressBar.value)">Search Google</button>
-    <button class="btn btn-launch" onclick="processInput(topAddressBar.value, true)" title="Open website via Google proxy in a full tab to avoid connect errors">🌐 Open Website</button>
+    <input type="text" id="topAddressBar" class="url-input" placeholder="Search Google or enter website domain..." onkeydown="if(event.key==='Enter') processInput(topAddressBar.value)">
+    <button class="btn" onclick="processInput(topAddressBar.value)">Go</button>
   </div>
 
   <!-- Main View Area -->
@@ -63,20 +59,14 @@
       </div>
 
       <div class="search-box-container">
-        <input type="text" id="mainSearchInput" class="main-search-input" placeholder="Search Google or enter a website link..." onkeydown="if(event.key==='Enter') processInput(mainSearchInput.value)">
+        <input type="text" id="mainSearchInput" class="main-search-input" placeholder="Search Google or enter a website..." onkeydown="if(event.key==='Enter') processInput(mainSearchInput.value)">
         <button class="search-btn" onclick="processInput(mainSearchInput.value)">Google Search</button>
       </div>
 
-      <div class="info-card">
-        <strong>How it works:</strong>
-        <ul>
-          <li><strong>Search queries:</strong> Load Google Search directly inside this tab without connection errors.</li>
-          <li><strong>Website URLs:</strong> Automatically open via Google's cloud translation engine in a top-level tab to bypass "refused to connect" restrictions and network blocks.</li>
-        </ul>
-      </div>
+      <div id="statusMsg" class="status-msg"></div>
     </div>
 
-    <!-- Web Display Frame for Google Searches -->
+    <!-- Embedded Web Frame -->
     <iframe id="browserFrame"></iframe>
 
   </div>
@@ -86,33 +76,104 @@
     const homeSection = document.getElementById('homeSection');
     const topAddressBar = document.getElementById('topAddressBar');
     const mainSearchInput = document.getElementById('mainSearchInput');
+    const statusMsg = document.getElementById('statusMsg');
 
-    function processInput(query, forceWebsite = false) {
+    // Intercept link clicks from inside the iframe to keep browsing inside your site
+    window.addEventListener('message', function(event) {
+      if (event.data && event.data.type === 'EMBED_NAVIGATE') {
+        processInput(event.data.url);
+      }
+    });
+
+    async function processInput(query) {
       query = query.trim();
       if (!query) return;
 
       topAddressBar.value = query;
+      mainSearchInput.value = query;
 
-      const isUrl = forceWebsite || 
-                    query.startsWith('http://') || 
+      const isUrl = query.startsWith('http://') || 
                     query.startsWith('https://') || 
                     (query.includes('.') && !query.includes(' '));
 
       if (isUrl) {
-        // Open website via Google Proxy as a top-level document (bypasses X-Frame-Options completely)
         let target = query;
         if (!target.startsWith('http://') && !target.startsWith('https://')) {
           target = 'https://' + target;
         }
-        const proxyUrl = 'https://translate.google.com/translate?sl=auto&tl=en&u=' + encodeURIComponent(target);
-        
-        window.open(proxyUrl, '_blank');
+        await loadWebpageInsideFrame(target);
       } else {
-        // Render Google Search directly inside the page (Google permits framing for igu=1 searches)
+        // Embed Google Search directly in the frame
         const googleSearchUrl = 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(query);
         homeSection.style.display = 'none';
+        frame.removeAttribute('srcdoc');
         frame.style.display = 'block';
         frame.src = googleSearchUrl;
+      }
+    }
+
+    async function loadWebpageInsideFrame(targetUrl) {
+      statusMsg.textContent = 'Fetching page content & rendering in frame...';
+      
+      try {
+        // Fetch raw website HTML through proxy
+        const proxyEndpoint = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(targetUrl);
+        const response = await fetch(proxyEndpoint);
+        
+        if (!response.ok) throw new Error('Network response was not ok');
+        let html = await response.text();
+
+        // Script injected into target page to route internal links back into your frame
+        const clickInterceptor = `
+          <script>
+            document.addEventListener('click', function(e) {
+              const a = e.target.closest('a');
+              if (a && a.href) {
+                e.preventDefault();
+                window.parent.postMessage({ type: 'EMBED_NAVIGATE', url: a.href }, '*');
+              }
+            }, true);
+          <\/script>
+        `;
+
+        // Inject <base> tag so relative styles, images, and fonts load correctly
+        const baseTag = `<base href="${targetUrl}">` + clickInterceptor;
+        if (html.includes('<head>')) {
+          html = html.replace('<head>', '<head>' + baseTag);
+        } else {
+          html = baseTag + html;
+        }
+
+        // Render raw HTML using srcdoc (completely bypasses X-Frame-Options)
+        homeSection.style.display = 'none';
+        frame.removeAttribute('src');
+        frame.style.display = 'block';
+        frame.srcdoc = html;
+        statusMsg.textContent = '';
+
+      } catch (err) {
+        statusMsg.textContent = 'Primary proxy busy, trying secondary proxy...';
+        try {
+          const fallbackEndpoint = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+          const response = await fetch(fallbackEndpoint);
+          let html = await response.text();
+          
+          const baseTag = `<base href="${targetUrl}">`;
+          if (html.includes('<head>')) {
+            html = html.replace('<head>', '<head>' + baseTag);
+          } else {
+            html = baseTag + html;
+          }
+
+          homeSection.style.display = 'none';
+          frame.removeAttribute('src');
+          frame.style.display = 'block';
+          frame.srcdoc = html;
+          statusMsg.textContent = '';
+        } catch (err2) {
+          alert('Failed to load page content into frame.');
+          statusMsg.textContent = '';
+        }
       }
     }
 
@@ -122,6 +183,8 @@
       topAddressBar.value = '';
       mainSearchInput.value = '';
       frame.src = '';
+      frame.removeAttribute('srcdoc');
+      statusMsg.textContent = '';
     }
   </script>
 </body>
