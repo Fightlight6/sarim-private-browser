@@ -3,31 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PrivaBrowser</title>
+  <title>Google Cloud Browser</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-    body { display: flex; flex-direction: column; height: 100vh; background: #121212; color: #fff; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { display: flex; flex-direction: column; height: 100vh; background: #202124; color: #fff; }
     
     /* Address Bar Styling */
-    .nav-bar { display: flex; gap: 8px; padding: 10px; background: #1f1f1f; border-bottom: 1px solid #333; }
-    .btn { background: #008080; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-    .btn:hover { background: #00a0a0; }
-    input { flex: 1; padding: 10px 14px; border-radius: 20px; border: 1px solid #444; background: #0a0a0a; color: white; outline: none; font-size: 14px; }
-    input:focus { border-color: #008080; }
+    .nav-bar { display: flex; gap: 8px; padding: 10px; background: #2f3136; border-bottom: 1px solid #444; align-items: center; }
+    .btn { background: #1a73e8; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; }
+    .btn:hover { background: #1557b0; }
+    input { flex: 1; padding: 10px 16px; border-radius: 20px; border: 1px solid #5f6368; background: #171717; color: white; outline: none; font-size: 14px; }
+    input:focus { border-color: #8ab4f8; }
     
-    /* Browser Display Frame */
+    /* Browser Frame */
     iframe { flex: 1; border: none; background: white; }
   </style>
 </head>
 <body>
 
   <div class="nav-bar">
-    <button class="btn" onclick="goHome()">🏠 Home</button>
-    <input type="text" id="addressInput" placeholder="Type a website (e.g., wikipedia.org) or search term..." onkeydown="if(event.key==='Enter') navigate()">
-    <button class="btn" onclick="navigate()">Go</button>
+    <button class="btn" onclick="goHome()">🏠 Google Home</button>
+    <input type="text" id="addressInput" placeholder="Type a website (e.g. wikipedia.org) or search Google..." onkeydown="if(event.key==='Enter') navigate()">
+    <button class="btn" onclick="navigate()">Search</button>
   </div>
 
-  <iframe id="browserFrame" src="https://duckduckgo.com/html"></iframe>
+  <!-- Loads Google inside the browser frame by default -->
+  <iframe id="browserFrame" src="https://translate.google.com/translate?sl=auto&tl=en&u=https://www.google.com"></iframe>
 
   <script>
     const frame = document.getElementById('browserFrame');
@@ -37,7 +38,7 @@
       let query = input.value.trim();
       if (!query) return;
 
-      // Detect if user typed a website link (like reddit.com or wikipedia.org)
+      // Check if user typed a direct domain name (like wikipedia.org or example.com)
       const isWebsite = query.startsWith('http://') || 
                         query.startsWith('https://') || 
                         (query.includes('.') && !query.includes(' '));
@@ -46,18 +47,18 @@
         if (!query.startsWith('http://') && !query.startsWith('https://')) {
           query = 'https://' + query;
         }
-        
-        // Route website through Google's cloud server engine to bypass school blocks
+        // Load target website through Google Translate server frame
         frame.src = 'https://translate.google.com/translate?sl=auto&tl=en&u=' + encodeURIComponent(query);
       } else {
-        // Search using DuckDuckGo
-        frame.src = 'https://duckduckgo.com/html/?q=' + encodeURIComponent(query);
+        // Run Google Search directly through Google Translate server frame
+        const googleSearchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+        frame.src = 'https://translate.google.com/translate?sl=auto&tl=en&u=' + encodeURIComponent(googleSearchUrl);
       }
     }
 
     function goHome() {
       input.value = '';
-      frame.src = 'https://duckduckgo.com/html';
+      frame.src = 'https://translate.google.com/translate?sl=auto&tl=en&u=https://www.google.com';
     }
   </script>
 </body>
