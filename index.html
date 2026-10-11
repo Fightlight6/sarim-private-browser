@@ -16,8 +16,9 @@
     .url-input { flex: 1; padding: 10px 16px; border-radius: 24px; border: 1px solid #5f6368; background: #171717; color: #fff; font-size: 14px; outline: none; }
     .url-input:focus { border-color: #8ab4f8; box-shadow: 0 0 5px rgba(138, 180, 248, 0.4); }
 
-    /* Tip Banner */
-    .tip-banner { background: #188038; color: #ffffff; font-size: 12px; padding: 6px 16px; text-align: center; font-weight: 500; display: none; }
+    /* Custom Worker Bar */
+    .worker-bar { display: flex; align-items: center; gap: 8px; padding: 6px 16px; background: #1e1e1e; border-bottom: 1px solid #333; font-size: 12px; }
+    .worker-input { flex: 1; padding: 4px 10px; border-radius: 12px; border: 1px solid #444; background: #0a0a0a; color: #8ab4f8; font-size: 11px; outline: none; }
 
     /* Main Container */
     .main-container { flex: 1; position: relative; width: 100%; height: 100%; }
@@ -45,18 +46,20 @@
 </head>
 <body>
 
-  <!-- Top Navigation Bar -->
+  <!-- Top Controls -->
   <div class="nav-bar">
     <button class="btn" onclick="showHome()">🏠 Home</button>
-    <input type="text" id="topAddressBar" class="url-input" placeholder="Search Google or enter a website URL (e.g. wikipedia.org)..." onkeydown="if(event.key==='Enter') navigateFromTop()">
+    <input type="text" id="topAddressBar" class="url-input" placeholder="Search Google or enter a website URL..." onkeydown="if(event.key==='Enter') navigateFromTop()">
     <button class="btn" onclick="navigateFromTop()">Go</button>
   </div>
 
-  <div id="tipBanner" class="tip-banner">
-    💡 <strong>Tip for Google Search:</strong> To open a result without frame blocks, right-click (or 2-finger tap) the result link ➔ <strong>Copy link address</strong> ➔ paste it into the top address bar!
+  <!-- Custom Proxy Worker Entry -->
+  <div class="worker-bar">
+    <span style="color:#bdc1c6;">⚡ Custom Proxy (Optional):</span>
+    <input type="text" id="customWorkerInput" class="worker-input" placeholder="Paste Cloudflare Worker URL here if public sites are blocked..." onchange="saveCustomWorker()">
   </div>
 
-  <!-- Main View Area -->
+  <!-- Main Display -->
   <div class="main-container">
     
     <!-- Home Interface -->
@@ -71,7 +74,7 @@
       </div>
 
       <p class="info-text">
-        🔒 JSON-based proxy engine renders external sites inside local frame storage to bypass security restrictions.
+        🔒 Native Google Searches work out-of-the-box. External websites use multi-engine fallback proxying.
       </p>
     </div>
 
@@ -85,9 +88,18 @@
     const homeSection = document.getElementById('homeSection');
     const topAddressBar = document.getElementById('topAddressBar');
     const mainSearchInput = document.getElementById('mainSearchInput');
-    const tipBanner = document.getElementById('tipBanner');
+    const customWorkerInput = document.getElementById('customWorkerInput');
 
-    // Intercept internal link clicks inside proxy-rendered pages
+    // Load saved custom proxy worker if present
+    if (localStorage.getItem('my_custom_worker')) {
+      customWorkerInput.value = localStorage.getItem('my_custom_worker');
+    }
+
+    function saveCustomWorker() {
+      localStorage.setItem('my_custom_worker', customWorkerInput.value.trim());
+    }
+
+    // Intercept clicks on links inside loaded proxy pages
     window.addEventListener('message', (e) => {
       if (e.data && e.data.type === 'NAVIGATE_INNER' && e.data.url) {
         loadTarget(e.data.url);
@@ -107,21 +119,19 @@
       frame.style.display = 'block';
 
       if (isUrl) {
-        tipBanner.style.display = 'none';
         let target = query;
         if (!target.startsWith('http://') && !target.startsWith('https://')) {
           target = 'https://' + target;
         }
         fetchWebSite(target);
       } else {
-        // Show helpful tip banner during Google Search
-        tipBanner.style.display = 'block';
+        // Embed Google Search directly using igu=1
         frame.removeAttribute('srcdoc');
         frame.src = 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(query);
       }
     }
 
-    async function fetchWithTimeout(url, timeoutMs = 4000) {
+    async function fetchWithTimeout(url, timeoutMs = 3500) {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -137,41 +147,41 @@
     async function fetchWebSite(targetUrl) {
       frame.removeAttribute('src');
 
-      // Show dark mode loading indicator inside frame
       frame.srcdoc = `
         <body style="background:#202124; color:#8ab4f8; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0;">
-          <h2 style="margin-bottom:10px;">Rendering page...</h2>
+          <h2 style="margin-bottom:10px;">Connecting to site...</h2>
           <p style="color:#bdc1c6; font-size:14px;">${targetUrl}</p>
         </body>`;
 
       let loadedHtml = null;
 
-      // Method 1: AllOrigins JSON API (Parses full HTML body into clean JSON string)
-      try {
-        const res = await fetchWithTimeout('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl), 4000);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.contents) {
-            loadedHtml = data.contents;
-          }
-        }
-      } catch (e) {}
-
-      // Method 2: CorsProxy Engine (Fallback)
-      if (!loadedHtml) {
+      // 1. Try Custom Private Worker if defined
+      const customWorker = customWorkerInput.value.trim();
+      if (customWorker) {
         try {
-          const res = await fetchWithTimeout('https://corsproxy.io/?' + encodeURIComponent(targetUrl), 4000);
+          const workerUrl = customWorker.endsWith('/') ? customWorker + targetUrl : customWorker + '?url=' + encodeURIComponent(targetUrl);
+          const res = await fetchWithTimeout(workerUrl, 4000);
           if (res.ok) {
-            const text = await res.text();
-            if (text && text.trim().length > 0) loadedHtml = text;
+            loadedHtml = await res.text();
           }
         } catch (e) {}
       }
 
-      // Method 3: CodeTabs Proxy Engine (Fallback)
+      // 2. Try AllOrigins JSON API
       if (!loadedHtml) {
         try {
-          const res = await fetchWithTimeout('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(targetUrl), 4000);
+          const res = await fetchWithTimeout('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl), 3500);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.contents) loadedHtml = data.contents;
+          }
+        } catch (e) {}
+      }
+
+      // 3. Try CodeTabs Bridge
+      if (!loadedHtml) {
+        try {
+          const res = await fetchWithTimeout('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(targetUrl), 3500);
           if (res.ok) {
             const text = await res.text();
             if (text && text.trim().length > 0) loadedHtml = text;
@@ -180,7 +190,6 @@
       }
 
       if (loadedHtml) {
-        // Inject base URL tag and click listener script
         const scriptInjector = `
           <base href="${targetUrl}">
           <script>
@@ -202,16 +211,15 @@
 
         frame.srcdoc = loadedHtml;
       } else {
-        // Safe In-App Error Reader (Never uses translate.google frame redirect)
         frame.srcdoc = `
           <body style="background:#202124; color:#e8eaed; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0; padding:20px; text-align:center;">
-            <h2 style="color:#ea4335; margin-bottom:12px;">Unable to fetch direct site code</h2>
-            <p style="color:#bdc1c6; max-width:450px; font-size:14px; line-height:1.6; margin-bottom:20px;">
-              The target site strictly blocks automated proxies or background fetching.
+            <h3 style="color:#ea4335; margin-bottom:10px;">Public Proxy Blocked by Chromebook Filter</h3>
+            <p style="color:#bdc1c6; max-width:480px; font-size:13px; line-height:1.6; margin-bottom:15px;">
+              Your school Chromebook is blocking public CORS proxies by domain name.
             </p>
-            <a href="https://web.archive.org/web/*/${targetUrl}" target="_blank" style="background:#8ab4f8; color:#202124; padding:10px 20px; border-radius:20px; text-decoration:none; font-weight:bold;">
-              View Archived Snapshot
-            </a>
+            <p style="color:#8ab4f8; font-size:12px;">
+              Create a free private Cloudflare Worker (takes 60 seconds) and paste your custom URL into the top box above to bypass all Chromebook blocks permanently.
+            </p>
           </body>`;
       }
     }
@@ -226,7 +234,6 @@
 
     function showHome() {
       frame.style.display = 'none';
-      tipBanner.style.display = 'none';
       homeSection.style.display = 'flex';
       topAddressBar.value = '';
       mainSearchInput.value = '';
