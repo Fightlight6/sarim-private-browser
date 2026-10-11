@@ -3,25 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Google Cloud Browser</title>
+  <title>Google Cloud Portal</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     body { background: #202124; color: #e8eaed; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-    /* Top Navigation Bar */
-    .nav-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #2f3136; border-bottom: 1px solid #3c4043; }
-    .btn { background: #8ab4f8; color: #202124; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
+    /* Top Navigation Controls */
+    .nav-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #2f3136; border-bottom: 1px solid #3c4043; }
+    .btn { background: #8ab4f8; color: #202124; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
     .btn:hover { background: #aecbfa; }
-    .btn-stealth { background: #34a853; color: #fff; }
-    .btn-stealth:hover { background: #2d9247; }
+    .btn-launch { background: #34a853; color: #fff; }
+    .btn-launch:hover { background: #2d9247; }
 
     .url-input { flex: 1; padding: 10px 16px; border-radius: 24px; border: 1px solid #5f6368; background: #171717; color: #fff; font-size: 14px; outline: none; }
     .url-input:focus { border-color: #8ab4f8; box-shadow: 0 0 5px rgba(138, 180, 248, 0.4); }
 
-    /* Main Display Area */
+    /* Main Content Container */
     .main-container { flex: 1; position: relative; width: 100%; height: 100%; }
 
-    /* Home Interface */
+    /* Google Home Screen */
     #homeSection { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 20px; text-align: center; }
     .google-logo { font-size: 3.5rem; font-weight: bold; margin-bottom: 24px; letter-spacing: -1px; }
     .g-blue { color: #4285f4; }
@@ -33,23 +33,24 @@
     .main-search-input { flex: 1; padding: 14px 20px; border-radius: 24px; border: 1px solid #5f6368; background: #303134; color: #fff; font-size: 16px; outline: none; }
     .main-search-input:focus { border-color: #8ab4f8; background: #202124; }
 
-    .search-btn { background: #303134; color: #e8eaed; border: 1px solid #5f6368; padding: 12px 20px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .search-btn { background: #303134; color: #e8eaed; border: 1px solid #5f6368; padding: 12px 24px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; }
     .search-btn:hover { background: #3c4043; border-color: #8ab4f8; }
 
-    .info-text { color: #bdc1c6; font-size: 0.85rem; margin-top: 15px; line-height: 1.5; max-width: 520px; }
+    .info-card { background: #2d2e31; border: 1px solid #3c4043; padding: 16px; border-radius: 12px; margin-top: 15px; max-width: 520px; font-size: 0.88rem; color: #bdc1c6; line-height: 1.5; text-align: left; }
+    .info-card ul { margin-left: 20px; margin-top: 8px; }
 
-    /* Frame View */
+    /* Embedded Frame for Google Search */
     #browserFrame { width: 100%; height: 100%; border: none; background: #fff; display: none; }
   </style>
 </head>
 <body>
 
-  <!-- Top Navigation Controls -->
+  <!-- Navigation Bar -->
   <div class="nav-bar">
     <button class="btn" onclick="showHome()">🏠 Home</button>
-    <input type="text" id="topAddressBar" class="url-input" placeholder="Search Google or enter a website URL..." onkeydown="if(event.key==='Enter') navigateFromTop()">
-    <button class="btn" onclick="navigateFromTop()">Search / Open</button>
-    <button class="btn btn-stealth" onclick="openStealthMode()" title="Opens website in an unblocked stealth tab">🚀 Stealth Tab</button>
+    <input type="text" id="topAddressBar" class="url-input" placeholder="Search Google or type a URL (e.g., wikipedia.org)..." onkeydown="if(event.key==='Enter') processInput(topAddressBar.value)">
+    <button class="btn" onclick="processInput(topAddressBar.value)">Search Google</button>
+    <button class="btn btn-launch" onclick="processInput(topAddressBar.value, true)" title="Open website via Google proxy in a full tab to avoid connect errors">🌐 Open Website</button>
   </div>
 
   <!-- Main View Area -->
@@ -62,17 +63,20 @@
       </div>
 
       <div class="search-box-container">
-        <input type="text" id="mainSearchInput" class="main-search-input" placeholder="Search Google or enter a website..." onkeydown="if(event.key==='Enter') navigateFromMain()">
-        <button class="search-btn" onclick="navigateFromMain()">Google Search</button>
+        <input type="text" id="mainSearchInput" class="main-search-input" placeholder="Search Google or enter a website link..." onkeydown="if(event.key==='Enter') processInput(mainSearchInput.value)">
+        <button class="search-btn" onclick="processInput(mainSearchInput.value)">Google Search</button>
       </div>
 
-      <p class="info-text">
-        🔍 <strong>Google Search</strong> works natively here.<br>
-        ⚡ For blocked sites or "refused to connect" errors, click <strong>🚀 Stealth Tab</strong> to open the site in a clean, unblocked frame.
-      </p>
+      <div class="info-card">
+        <strong>How it works:</strong>
+        <ul>
+          <li><strong>Search queries:</strong> Load Google Search directly inside this tab without connection errors.</li>
+          <li><strong>Website URLs:</strong> Automatically open via Google's cloud translation engine in a top-level tab to bypass "refused to connect" restrictions and network blocks.</li>
+        </ul>
+      </div>
     </div>
 
-    <!-- Web Display Frame -->
+    <!-- Web Display Frame for Google Searches -->
     <iframe id="browserFrame"></iframe>
 
   </div>
@@ -83,71 +87,33 @@
     const topAddressBar = document.getElementById('topAddressBar');
     const mainSearchInput = document.getElementById('mainSearchInput');
 
-    function loadTarget(query) {
+    function processInput(query, forceWebsite = false) {
+      query = query.trim();
       if (!query) return;
 
       topAddressBar.value = query;
 
-      const isUrl = query.startsWith('http://') || 
+      const isUrl = forceWebsite || 
+                    query.startsWith('http://') || 
                     query.startsWith('https://') || 
                     (query.includes('.') && !query.includes(' '));
 
       if (isUrl) {
-        // If user typed a direct URL, automatically launch Stealth Tab to bypass X-Frame-Options
-        openStealthUrl(query);
+        // Open website via Google Proxy as a top-level document (bypasses X-Frame-Options completely)
+        let target = query;
+        if (!target.startsWith('http://') && !target.startsWith('https://')) {
+          target = 'https://' + target;
+        }
+        const proxyUrl = 'https://translate.google.com/translate?sl=auto&tl=en&u=' + encodeURIComponent(target);
+        
+        window.open(proxyUrl, '_blank');
       } else {
-        // Embed Google Search directly using igu=1
-        const googleUrl = 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(query);
+        // Render Google Search directly inside the page (Google permits framing for igu=1 searches)
+        const googleSearchUrl = 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(query);
         homeSection.style.display = 'none';
         frame.style.display = 'block';
-        frame.src = googleUrl;
+        frame.src = googleSearchUrl;
       }
-    }
-
-    function openStealthUrl(rawUrl) {
-      let target = rawUrl;
-      if (!target.startsWith('http://') && !target.startsWith('https://')) {
-        target = 'https://' + target;
-      }
-
-      // Create an about:blank tab to hide referrer headers and bypass Chromebook extension inspection
-      const stealthWin = window.open('about:blank', '_blank');
-      if (stealthWin) {
-        stealthWin.document.write(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Google Drive</title>
-            <style>
-              html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
-              iframe { width: 100%; height: 100%; border: none; }
-            </style>
-          </head>
-          <body>
-            <iframe src="https://translate.google.com/translate?sl=auto&tl=en&u=${encodeURIComponent(target)}"></iframe>
-          </body>
-          </html>
-        `);
-      } else {
-        alert('Please allow pop-ups on your Chromebook browser to open Stealth Mode.');
-      }
-    }
-
-    function openStealthMode() {
-      const currentInput = topAddressBar.value.trim() || mainSearchInput.value.trim();
-      if (currentInput) {
-        openStealthUrl(currentInput);
-      } else {
-        alert('Enter a website link in the search bar first!');
-      }
-    }
-
-    function navigateFromTop() {
-      loadTarget(topAddressBar.value.trim());
-    }
-
-    function navigateFromMain() {
-      loadTarget(mainSearchInput.value.trim());
     }
 
     function showHome() {
