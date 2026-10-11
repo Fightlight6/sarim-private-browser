@@ -16,6 +16,9 @@
     .url-input { flex: 1; padding: 10px 16px; border-radius: 24px; border: 1px solid #5f6368; background: #171717; color: #fff; font-size: 14px; outline: none; }
     .url-input:focus { border-color: #8ab4f8; box-shadow: 0 0 5px rgba(138, 180, 248, 0.4); }
 
+    /* Tip Banner */
+    .tip-banner { background: #188038; color: #ffffff; font-size: 12px; padding: 6px 16px; text-align: center; font-weight: 500; display: none; }
+
     /* Main Container */
     .main-container { flex: 1; position: relative; width: 100%; height: 100%; }
 
@@ -45,8 +48,12 @@
   <!-- Top Navigation Bar -->
   <div class="nav-bar">
     <button class="btn" onclick="showHome()">🏠 Home</button>
-    <input type="text" id="topAddressBar" class="url-input" placeholder="Search Google or enter a website URL..." onkeydown="if(event.key==='Enter') navigateFromTop()">
+    <input type="text" id="topAddressBar" class="url-input" placeholder="Search Google or enter a website URL (e.g. wikipedia.org)..." onkeydown="if(event.key==='Enter') navigateFromTop()">
     <button class="btn" onclick="navigateFromTop()">Go</button>
+  </div>
+
+  <div id="tipBanner" class="tip-banner">
+    💡 <strong>Tip for Google Search:</strong> To open a result without frame blocks, right-click (or 2-finger tap) the result link ➔ <strong>Copy link address</strong> ➔ paste it into the top address bar!
   </div>
 
   <!-- Main View Area -->
@@ -64,7 +71,7 @@
       </div>
 
       <p class="info-text">
-        🔒 Native Google Search enabled. External sites route through proxy engine.
+        🔒 JSON-based proxy engine renders external sites inside local frame storage to bypass security restrictions.
       </p>
     </div>
 
@@ -78,8 +85,9 @@
     const homeSection = document.getElementById('homeSection');
     const topAddressBar = document.getElementById('topAddressBar');
     const mainSearchInput = document.getElementById('mainSearchInput');
+    const tipBanner = document.getElementById('tipBanner');
 
-    // Intercept internal link clicks to keep browsing inside the app
+    // Intercept internal link clicks inside proxy-rendered pages
     window.addEventListener('message', (e) => {
       if (e.data && e.data.type === 'NAVIGATE_INNER' && e.data.url) {
         loadTarget(e.data.url);
@@ -99,20 +107,21 @@
       frame.style.display = 'block';
 
       if (isUrl) {
+        tipBanner.style.display = 'none';
         let target = query;
         if (!target.startsWith('http://') && !target.startsWith('https://')) {
           target = 'https://' + target;
         }
         fetchWebSite(target);
       } else {
-        // DIRECT GOOGLE SEARCH LOAD USING igu=1 PARAMETER
-        // NEVER send Google Search queries through a proxy server
+        // Show helpful tip banner during Google Search
+        tipBanner.style.display = 'block';
         frame.removeAttribute('srcdoc');
         frame.src = 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(query);
       }
     }
 
-    async function fetchWithTimeout(url, timeoutMs = 3000) {
+    async function fetchWithTimeout(url, timeoutMs = 4000) {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -128,36 +137,50 @@
     async function fetchWebSite(targetUrl) {
       frame.removeAttribute('src');
 
-      // Loading screen inside frame
+      // Show dark mode loading indicator inside frame
       frame.srcdoc = `
         <body style="background:#202124; color:#8ab4f8; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0;">
-          <h2 style="margin-bottom:10px;">Connecting to website...</h2>
+          <h2 style="margin-bottom:10px;">Rendering page...</h2>
           <p style="color:#bdc1c6; font-size:14px;">${targetUrl}</p>
         </body>`;
 
-      const proxyList = [
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
-      ];
-
       let loadedHtml = null;
 
-      for (const proxy of proxyList) {
+      // Method 1: AllOrigins JSON API (Parses full HTML body into clean JSON string)
+      try {
+        const res = await fetchWithTimeout('https://api.allorigins.win/get?url=' + encodeURIComponent(targetUrl), 4000);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.contents) {
+            loadedHtml = data.contents;
+          }
+        }
+      } catch (e) {}
+
+      // Method 2: CorsProxy Engine (Fallback)
+      if (!loadedHtml) {
         try {
-          const res = await fetchWithTimeout(proxy, 3000);
+          const res = await fetchWithTimeout('https://corsproxy.io/?' + encodeURIComponent(targetUrl), 4000);
           if (res.ok) {
             const text = await res.text();
-            if (text && text.trim().length > 0) {
-              loadedHtml = text;
-              break;
-            }
+            if (text && text.trim().length > 0) loadedHtml = text;
           }
-        } catch (e) {
-          continue;
-        }
+        } catch (e) {}
+      }
+
+      // Method 3: CodeTabs Proxy Engine (Fallback)
+      if (!loadedHtml) {
+        try {
+          const res = await fetchWithTimeout('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(targetUrl), 4000);
+          if (res.ok) {
+            const text = await res.text();
+            if (text && text.trim().length > 0) loadedHtml = text;
+          }
+        } catch (e) {}
       }
 
       if (loadedHtml) {
+        // Inject base URL tag and click listener script
         const scriptInjector = `
           <base href="${targetUrl}">
           <script>
@@ -179,9 +202,17 @@
 
         frame.srcdoc = loadedHtml;
       } else {
-        // Fallback proxy frame for external sites
-        frame.removeAttribute('srcdoc');
-        frame.src = 'https://translate.google.com/translate?sl=auto&tl=en&u=' + encodeURIComponent(targetUrl);
+        // Safe In-App Error Reader (Never uses translate.google frame redirect)
+        frame.srcdoc = `
+          <body style="background:#202124; color:#e8eaed; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0; padding:20px; text-align:center;">
+            <h2 style="color:#ea4335; margin-bottom:12px;">Unable to fetch direct site code</h2>
+            <p style="color:#bdc1c6; max-width:450px; font-size:14px; line-height:1.6; margin-bottom:20px;">
+              The target site strictly blocks automated proxies or background fetching.
+            </p>
+            <a href="https://web.archive.org/web/*/${targetUrl}" target="_blank" style="background:#8ab4f8; color:#202124; padding:10px 20px; border-radius:20px; text-decoration:none; font-weight:bold;">
+              View Archived Snapshot
+            </a>
+          </body>`;
       }
     }
 
@@ -195,6 +226,7 @@
 
     function showHome() {
       frame.style.display = 'none';
+      tipBanner.style.display = 'none';
       homeSection.style.display = 'flex';
       topAddressBar.value = '';
       mainSearchInput.value = '';
