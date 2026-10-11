@@ -8,7 +8,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     body { background: #202124; color: #e8eaed; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-    /* Top Navigation Bar */
+    /* Top Control Bar */
     .nav-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #2f3136; border-bottom: 1px solid #3c4043; }
     .btn { background: #8ab4f8; color: #202124; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
     .btn:hover { background: #aecbfa; }
@@ -19,7 +19,7 @@
     /* Main Container */
     .main-container { flex: 1; position: relative; width: 100%; height: 100%; }
 
-    /* Centered Google Home / Search Box Interface */
+    /* Google Home Screen */
     #homeSection { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 20px; text-align: center; }
     .google-logo { font-size: 3.5rem; font-weight: bold; margin-bottom: 24px; letter-spacing: -1px; }
     .g-blue { color: #4285f4; }
@@ -36,7 +36,7 @@
 
     .info-text { color: #bdc1c6; font-size: 0.9rem; margin-top: 15px; line-height: 1.5; max-width: 500px; }
 
-    /* Browser Display Frame */
+    /* Embedded Browser Frame */
     #browserFrame { width: 100%; height: 100%; border: none; background: #fff; display: none; }
   </style>
 </head>
@@ -44,31 +44,31 @@
 
   <!-- Top Navigation Bar -->
   <div class="nav-bar">
-    <button class="btn" onclick="showHome()">🏠 Home</button>
+    <button class="btn" onclick="showHome()">🏠 Google Home</button>
     <input type="text" id="topAddressBar" class="url-input" placeholder="Type a website URL (e.g. wikipedia.org) or search Google..." onkeydown="if(event.key==='Enter') navigateFromTop()">
     <button class="btn" onclick="navigateFromTop()">Go</button>
   </div>
 
-  <!-- Main Display -->
+  <!-- Main View Area -->
   <div class="main-container">
     
-    <!-- Home Search Interface -->
+    <!-- Home Interface -->
     <div id="homeSection">
       <div class="google-logo">
         <span class="g-blue">G</span><span class="g-red">o</span><span class="g-yellow">o</span><span class="g-blue">g</span><span class="g-green">l</span><span class="g-red">e</span>
       </div>
 
       <div class="search-box-container">
-        <input type="text" id="mainSearchInput" class="main-search-input" placeholder="Search Google or enter website domain..." onkeydown="if(event.key==='Enter') navigateFromMain()">
+        <input type="text" id="mainSearchInput" class="main-search-input" placeholder="Search Google or enter a website..." onkeydown="if(event.key==='Enter') navigateFromMain()">
         <button class="search-btn" onclick="navigateFromMain()">Google Search</button>
       </div>
 
       <p class="info-text">
-        🔒 All requests route through Google Cloud proxy servers to bypass Wi-Fi restrictions.
+        🔍 Google searches load directly. External website links automatically route through Google proxy servers.
       </p>
     </div>
 
-    <!-- Embedded Web View -->
+    <!-- Web Display Frame -->
     <iframe id="browserFrame"></iframe>
 
   </div>
@@ -79,15 +79,12 @@
     const topAddressBar = document.getElementById('topAddressBar');
     const mainSearchInput = document.getElementById('mainSearchInput');
 
-    // Google Translate Proxy Engine Prefix
-    const PROXY_BASE = 'https://translate.google.com/translate?sl=auto&tl=en&u=';
-
     function loadTarget(query) {
       if (!query) return;
 
       topAddressBar.value = query;
 
-      // Check if user entered a website URL (contains extension like .com, .org, .net, etc.)
+      // Check if user entered a direct website address (like wikipedia.org, example.com)
       const isUrl = query.startsWith('http://') || 
                     query.startsWith('https://') || 
                     (query.includes('.') && !query.includes(' '));
@@ -99,15 +96,13 @@
         if (!target.startsWith('http://') && !target.startsWith('https://')) {
           target = 'https://' + target;
         }
-        // Route website through Google proxy frame to bypass school block
-        finalUrl = PROXY_BASE + encodeURIComponent(target);
+        // Proxy external websites through Google Translate to bypass school filters
+        finalUrl = 'https://translate.google.com/translate?sl=auto&tl=en&u=' + encodeURIComponent(target);
       } else {
-        // Route Google Search query through Google proxy frame
-        const googleSearch = 'https://www.google.com/search?q=' + encodeURIComponent(query);
-        finalUrl = PROXY_BASE + encodeURIComponent(googleSearch);
+        // Embed Google Search directly using Google's frame-allowed parameter (?igu=1)
+        finalUrl = 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(query);
       }
 
-      // Hide home UI and switch to proxy iframe
       homeSection.style.display = 'none';
       frame.style.display = 'block';
       frame.src = finalUrl;
