@@ -10,7 +10,7 @@
 
     /* Top Navigation Bar */
     .nav-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: #2f3136; border-bottom: 1px solid #3c4043; }
-    .btn { background: #8ab4f8; color: #202124; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
+    .btn { background: #8ab4f8; color: #202124; border: none; padding: 8px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
     .btn:hover { background: #aecbfa; }
 
     .url-input { flex: 1; padding: 10px 16px; border-radius: 24px; border: 1px solid #5f6368; background: #171717; color: #fff; font-size: 14px; outline: none; }
@@ -42,7 +42,7 @@
 </head>
 <body>
 
-  <!-- Top Controls -->
+  <!-- Top Navigation Bar -->
   <div class="nav-bar">
     <button class="btn" onclick="showHome()">🏠 Home</button>
     <input type="text" id="topAddressBar" class="url-input" placeholder="Search Google or enter a website URL..." onkeydown="if(event.key==='Enter') navigateFromTop()">
@@ -64,12 +64,12 @@
       </div>
 
       <p class="info-text">
-        🔒 Web pages and Google Searches render completely inside this frame.
+        🔒 Fast-timeout engine prevents hanging. Everything stays inside this window.
       </p>
     </div>
 
     <!-- Web Display Frame -->
-    <iframe id="browserFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+    <iframe id="browserFrame"></iframe>
 
   </div>
 
@@ -79,7 +79,7 @@
     const topAddressBar = document.getElementById('topAddressBar');
     const mainSearchInput = document.getElementById('mainSearchInput');
 
-    // Handle clicks on links inside loaded proxy pages
+    // Intercept clicks on links inside loaded proxy pages to keep browsing inside the app
     window.addEventListener('message', (e) => {
       if (e.data && e.data.type === 'NAVIGATE_INNER' && e.data.url) {
         loadTarget(e.data.url);
@@ -100,9 +100,9 @@
         if (!target.startsWith('http://') && !target.startsWith('https://')) {
           target = 'https://' + target;
         }
-        fetchProxyPage(target);
+        fetchFastProxy(target);
       } else {
-        // Embed Google Search directly into the frame using igu=1
+        // Native Google Search via igu=1
         homeSection.style.display = 'none';
         frame.style.display = 'block';
         frame.removeAttribute('srcdoc');
@@ -110,7 +110,21 @@
       }
     }
 
-    async function fetchProxyPage(targetUrl) {
+    // Helper function that cancels requests taking longer than 3 seconds
+    async function fetchWithTimeout(url, timeoutMs = 3000) {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(id);
+        return response;
+      } catch (err) {
+        clearTimeout(id);
+        throw err;
+      }
+    }
+
+    async function fetchFastProxy(targetUrl) {
       homeSection.style.display = 'none';
       frame.style.display = 'block';
       frame.removeAttribute('src');
@@ -118,32 +132,37 @@
       // Display loading state
       frame.srcdoc = `
         <body style="background:#202124; color:#8ab4f8; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0;">
-          <h2>Connecting to site...</h2>
-          <p style="color:#bdc1c6; margin-top:8px;">${targetUrl}</p>
+          <h2 style="margin-bottom:10px;">Connecting to site...</h2>
+          <p style="color:#bdc1c6; font-size:14px;">${targetUrl}</p>
         </body>`;
 
-      // List of header-stripping proxy endpoints to bypass X-Frame-Options
-      const proxies = [
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+      // Fast proxy endpoints list
+      const proxyEndpoints = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
       ];
 
       let loadedHtml = null;
 
-      for (const proxyUrl of proxies) {
+      // Try proxies with a strict 3-second timeout each
+      for (const endpoint of proxyEndpoints) {
         try {
-          const res = await fetch(proxyUrl);
+          const res = await fetchWithTimeout(endpoint, 3000);
           if (res.ok) {
-            loadedHtml = await res.text();
-            if (loadedHtml && loadedHtml.trim().length > 0) break;
+            const text = await res.text();
+            if (text && text.trim().length > 0) {
+              loadedHtml = text;
+              break;
+            }
           }
         } catch (e) {
+          // Timeout or network error, skip immediately to next proxy
           continue;
         }
       }
 
       if (loadedHtml) {
-        // Inject base URL tag and link click interceptor
+        // Inject link click interceptor and base URL tag
         const scriptInjector = `
           <base href="${targetUrl}">
           <script>
@@ -165,7 +184,7 @@
 
         frame.srcdoc = loadedHtml;
       } else {
-        // Fallback embed if background fetching fails
+        // Direct internal fallback if background proxies are completely blocked by school Wi-Fi
         frame.removeAttribute('srcdoc');
         frame.src = 'https://translate.google.com/translate?sl=auto&tl=en&u=' + encodeURIComponent(targetUrl);
       }
