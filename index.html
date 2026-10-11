@@ -64,7 +64,7 @@
       </div>
 
       <p class="info-text">
-        🔒 Fast-timeout engine prevents hanging. Everything stays inside this window.
+        🔒 Both Google Searches and websites render directly inside this window.
       </p>
     </div>
 
@@ -79,7 +79,7 @@
     const topAddressBar = document.getElementById('topAddressBar');
     const mainSearchInput = document.getElementById('mainSearchInput');
 
-    // Intercept clicks on links inside loaded proxy pages to keep browsing inside the app
+    // Intercept clicks on links inside loaded pages to keep browsing inside the app
     window.addEventListener('message', (e) => {
       if (e.data && e.data.type === 'NAVIGATE_INNER' && e.data.url) {
         loadTarget(e.data.url);
@@ -100,18 +100,15 @@
         if (!target.startsWith('http://') && !target.startsWith('https://')) {
           target = 'https://' + target;
         }
-        fetchFastProxy(target);
+        fetchAndRender(target);
       } else {
-        // Native Google Search via igu=1
-        homeSection.style.display = 'none';
-        frame.style.display = 'block';
-        frame.removeAttribute('srcdoc');
-        frame.src = 'https://www.google.com/search?igu=1&q=' + encodeURIComponent(query);
+        // Fetch Google Search via HTML renderer to strip X-Frame-Options
+        const googleUrl = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+        fetchAndRender(googleUrl);
       }
     }
 
-    // Helper function that cancels requests taking longer than 3 seconds
-    async function fetchWithTimeout(url, timeoutMs = 3000) {
+    async function fetchWithTimeout(url, timeoutMs = 4000) {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -124,30 +121,28 @@
       }
     }
 
-    async function fetchFastProxy(targetUrl) {
+    async function fetchAndRender(targetUrl) {
       homeSection.style.display = 'none';
       frame.style.display = 'block';
       frame.removeAttribute('src');
 
-      // Display loading state
+      // Show dark mode loading screen
       frame.srcdoc = `
         <body style="background:#202124; color:#8ab4f8; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0;">
-          <h2 style="margin-bottom:10px;">Connecting to site...</h2>
+          <h2 style="margin-bottom:10px;">Loading...</h2>
           <p style="color:#bdc1c6; font-size:14px;">${targetUrl}</p>
         </body>`;
 
-      // Fast proxy endpoints list
-      const proxyEndpoints = [
+      const proxies = [
         `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
         `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
       ];
 
       let loadedHtml = null;
 
-      // Try proxies with a strict 3-second timeout each
-      for (const endpoint of proxyEndpoints) {
+      for (const proxy of proxies) {
         try {
-          const res = await fetchWithTimeout(endpoint, 3000);
+          const res = await fetchWithTimeout(proxy, 4000);
           if (res.ok) {
             const text = await res.text();
             if (text && text.trim().length > 0) {
@@ -156,13 +151,12 @@
             }
           }
         } catch (e) {
-          // Timeout or network error, skip immediately to next proxy
           continue;
         }
       }
 
       if (loadedHtml) {
-        // Inject link click interceptor and base URL tag
+        // Inject base URL tag and link click interceptor
         const scriptInjector = `
           <base href="${targetUrl}">
           <script>
@@ -184,7 +178,7 @@
 
         frame.srcdoc = loadedHtml;
       } else {
-        // Direct internal fallback if background proxies are completely blocked by school Wi-Fi
+        // Fallback to Google Translate proxy frame
         frame.removeAttribute('srcdoc');
         frame.src = 'https://translate.google.com/translate?sl=auto&tl=en&u=' + encodeURIComponent(targetUrl);
       }
