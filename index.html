@@ -5,101 +5,128 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Google Cloud Browser</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, sans-serif; }
-    body { background: #202124; color: #fff; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-    
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background: #202124; color: #e8eaed; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
     /* Top Navigation Bar */
-    .nav-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #2f3136; border-bottom: 1px solid #3c4043; }
-    .btn { background: #1a73e8; color: white; border: none; padding: 9px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
-    .btn:hover { background: #1557b0; }
-    
-    .url-input { flex: 1; padding: 10px 16px; border-radius: 20px; border: 1px solid #5f6368; background: #171717; color: #fff; font-size: 14px; outline: none; }
-    .url-input:focus { border-color: #8ab4f8; }
+    .nav-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #2f3136; border-bottom: 1px solid #3c4043; }
+    .btn { background: #8ab4f8; color: #202124; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px; }
+    .btn:hover { background: #aecbfa; }
 
-    /* Display Area */
-    .container { flex: 1; position: relative; width: 100%; height: 100%; }
-    
-    /* Google Native Search Section */
-    #searchSection { padding: 20px; height: 100%; overflow-y: auto; background: #202124; }
-    .google-header { text-align: center; margin: 20px 0; }
-    .google-header h1 { font-size: 2.2rem; color: #8ab4f8; margin-bottom: 8px; }
-    .google-header p { color: #bdc1c6; }
+    .url-input { flex: 1; padding: 10px 16px; border-radius: 24px; border: 1px solid #5f6368; background: #171717; color: #fff; font-size: 14px; outline: none; }
+    .url-input:focus { border-color: #8ab4f8; box-shadow: 0 0 5px rgba(138, 180, 248, 0.4); }
 
-    /* Embedded Site Frame */
-    #webFrame { width: 100%; height: 100%; border: none; background: #fff; display: none; }
+    /* Main Container */
+    .main-container { flex: 1; position: relative; width: 100%; height: 100%; }
 
-    /* Style Google Search Widget to fit Dark Mode */
-    .gsc-control-cse { background-color: #202124 !important; border: none !important; }
-    .gsc-search-button-v2 { background-color: #1a73e8 !important; border-radius: 6px !important; }
+    /* Centered Google Home / Search Box Interface */
+    #homeSection { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 20px; text-align: center; }
+    .google-logo { font-size: 3.5rem; font-weight: bold; margin-bottom: 24px; letter-spacing: -1px; }
+    .g-blue { color: #4285f4; }
+    .g-red { color: #ea4335; }
+    .g-yellow { color: #fbbc05; }
+    .g-green { color: #34a853; }
+
+    .search-box-container { width: 100%; max-width: 580px; display: flex; gap: 10px; margin-bottom: 20px; }
+    .main-search-input { flex: 1; padding: 14px 20px; border-radius: 24px; border: 1px solid #5f6368; background: #303134; color: #fff; font-size: 16px; outline: none; }
+    .main-search-input:focus { border-color: #8ab4f8; background: #202124; }
+
+    .search-btn { background: #303134; color: #e8eaed; border: 1px solid #5f6368; padding: 12px 24px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .search-btn:hover { background: #3c4043; border-color: #8ab4f8; }
+
+    .info-text { color: #bdc1c6; font-size: 0.9rem; margin-top: 15px; line-height: 1.5; max-width: 500px; }
+
+    /* Browser Display Frame */
+    #browserFrame { width: 100%; height: 100%; border: none; background: #fff; display: none; }
   </style>
-
-  <!-- Google Official Embeddable Search Code -->
-  <script src="https://cse.google.com/cse.js?cx=c020588147d3443a7" async></script>
 </head>
 <body>
 
-  <!-- Top Navigation Controls -->
+  <!-- Top Navigation Bar -->
   <div class="nav-bar">
-    <button class="btn" onclick="showSearch()">🏠 Search Home</button>
-    <input type="text" id="addressBar" class="url-input" placeholder="Type a website domain (e.g. wikipedia.org) or search Google..." onkeydown="if(event.key==='Enter') handleGo()">
-    <button class="btn" onclick="handleGo()">Go</button>
+    <button class="btn" onclick="showHome()">🏠 Home</button>
+    <input type="text" id="topAddressBar" class="url-input" placeholder="Type a website URL (e.g. wikipedia.org) or search Google..." onkeydown="if(event.key==='Enter') navigateFromTop()">
+    <button class="btn" onclick="navigateFromTop()">Go</button>
   </div>
 
-  <div class="container">
-    <!-- Website Frame -->
-    <iframe id="webFrame"></iframe>
-
-    <!-- Google Search Engine -->
-    <div id="searchSection">
-      <div class="google-header">
-        <h1>🔍 Google Cloud Search</h1>
-        <p>Type a search query below or enter a website address above.</p>
+  <!-- Main Display -->
+  <div class="main-container">
+    
+    <!-- Home Search Interface -->
+    <div id="homeSection">
+      <div class="google-logo">
+        <span class="g-blue">G</span><span class="g-red">o</span><span class="g-yellow">o</span><span class="g-blue">g</span><span class="g-green">l</span><span class="g-red">e</span>
       </div>
-      
-      <!-- Official Google Search Widget -->
-      <div class="gcse-search"></div>
+
+      <div class="search-box-container">
+        <input type="text" id="mainSearchInput" class="main-search-input" placeholder="Search Google or enter website domain..." onkeydown="if(event.key==='Enter') navigateFromMain()">
+        <button class="search-btn" onclick="navigateFromMain()">Google Search</button>
+      </div>
+
+      <p class="info-text">
+        🔒 All requests route through Google Cloud proxy servers to bypass Wi-Fi restrictions.
+      </p>
     </div>
+
+    <!-- Embedded Web View -->
+    <iframe id="browserFrame"></iframe>
+
   </div>
 
   <script>
-    const frame = document.getElementById('webFrame');
-    const searchSection = document.getElementById('searchSection');
-    const addressBar = document.getElementById('addressBar');
+    const frame = document.getElementById('browserFrame');
+    const homeSection = document.getElementById('homeSection');
+    const topAddressBar = document.getElementById('topAddressBar');
+    const mainSearchInput = document.getElementById('mainSearchInput');
 
-    function handleGo() {
-      const val = addressBar.value.trim();
-      if (!val) return;
+    // Google Translate Proxy Engine Prefix
+    const PROXY_BASE = 'https://translate.google.com/translate?sl=auto&tl=en&u=';
 
-      // Check if user typed a direct website link (like wikipedia.org, example.com)
-      const isUrl = val.startsWith('http://') || 
-                    val.startsWith('https://') || 
-                    (val.includes('.') && !val.includes(' '));
+    function loadTarget(query) {
+      if (!query) return;
+
+      topAddressBar.value = query;
+
+      // Check if user entered a website URL (contains extension like .com, .org, .net, etc.)
+      const isUrl = query.startsWith('http://') || 
+                    query.startsWith('https://') || 
+                    (query.includes('.') && !query.includes(' '));
+
+      let finalUrl = '';
 
       if (isUrl) {
-        let target = val;
+        let target = query;
         if (!target.startsWith('http://') && !target.startsWith('https://')) {
           target = 'https://' + target;
         }
-        searchSection.style.display = 'none';
-        frame.style.display = 'block';
-        frame.src = target;
+        // Route website through Google proxy frame to bypass school block
+        finalUrl = PROXY_BASE + encodeURIComponent(target);
       } else {
-        // Trigger Google Search Widget
-        showSearch();
-        setTimeout(() => {
-          const ginput = document.querySelector('input.gsc-input');
-          const gbtn = document.querySelector('button.gsc-search-button-v2');
-          if (ginput && gbtn) {
-            ginput.value = val;
-            gbtn.click();
-          }
-        }, 300);
+        // Route Google Search query through Google proxy frame
+        const googleSearch = 'https://www.google.com/search?q=' + encodeURIComponent(query);
+        finalUrl = PROXY_BASE + encodeURIComponent(googleSearch);
       }
+
+      // Hide home UI and switch to proxy iframe
+      homeSection.style.display = 'none';
+      frame.style.display = 'block';
+      frame.src = finalUrl;
     }
 
-    function showSearch() {
+    function navigateFromTop() {
+      loadTarget(topAddressBar.value.trim());
+    }
+
+    function navigateFromMain() {
+      loadTarget(mainSearchInput.value.trim());
+    }
+
+    function showHome() {
       frame.style.display = 'none';
-      searchSection.style.display = 'block';
+      homeSection.style.display = 'flex';
+      topAddressBar.value = '';
+      mainSearchInput.value = '';
+      frame.src = '';
     }
   </script>
 </body>
